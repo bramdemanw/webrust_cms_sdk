@@ -1,6 +1,45 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+// --- Plugin Block Rendering ---
+
+/// Input to a plugin's `render_block` export. The CMS calls this once per
+/// `<div data-plugin-block="slug:name" data-traits='{...}'></div>` marker
+/// found in a published page during runtime rendering.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockRenderRequest {
+    /// Block name (matches `[[blocks]] name` in plugin.toml).
+    pub block: String,
+    /// Trait values configured by the page editor.
+    #[serde(default)]
+    pub traits: HashMap<String, serde_json::Value>,
+    /// URL of the page being rendered. Use this in form actions / redirect targets
+    /// so error states can return to the same page.
+    #[serde(default)]
+    pub return_url: String,
+}
+
+impl BlockRenderRequest {
+    pub fn trait_str(&self, key: &str) -> Option<&str> {
+        self.traits.get(key)?.as_str()
+    }
+
+    pub fn trait_str_or<'a>(&'a self, key: &str, default: &'a str) -> &'a str {
+        self.trait_str(key).unwrap_or(default)
+    }
+
+    pub fn trait_bool(&self, key: &str) -> bool {
+        match self.traits.get(key) {
+            Some(v) if v.is_boolean() => v.as_bool().unwrap_or(false),
+            Some(v) if v.is_string() => {
+                let s = v.as_str().unwrap_or("");
+                s == "1" || s.eq_ignore_ascii_case("true")
+            }
+            _ => false,
+        }
+    }
+}
+
 // --- Hook Types ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
